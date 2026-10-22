@@ -29,6 +29,7 @@ async def create_video(prompt: str, aspect_ratio: str, duration_seconds: int) ->
         "seconds": duration_seconds,
         "size": "720P",
         "aspect_ratio": aspect_ratio,
+        "n": 1,
     }
     url = f"{settings.agnes_api_root.rstrip('/')}/v1/videos"
     try:
