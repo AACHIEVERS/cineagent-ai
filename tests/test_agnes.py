@@ -54,6 +54,7 @@ def test_create_video_uses_agnes_video_25_schema(monkeypatch):
     assert request["json"]["seconds"] == 5
     assert request["json"]["aspect_ratio"] == "16:9"
     assert request["json"]["size"] == "720P"
+    assert request["json"]["n"] == 1
     assert "num_frames" not in request["json"]
 
 
