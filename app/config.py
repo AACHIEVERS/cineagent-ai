@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     agnes_api_root: str = "https://apihub.agnes-ai.com"
     agnes_video_model: str = "agnes-video-2.5-flash"
     database_path: str = "./cineagent.db"
+    output_dir: str = "./output"
+    sadtalker_dir: str = "./SadTalker"
     app_env: str = "development"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
