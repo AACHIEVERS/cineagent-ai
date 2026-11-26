@@ -1,45 +1,69 @@
-# CineAgent AI — MVP
+# CineAgent AI — Video Production MVP
 
-A small, server-side FastAPI app for cinematic short-video generation with Agnes AI. The MVP flow is: create a project, submit an asynchronous video job, poll status, then preview the returned video URL. The default model is Agnes Video 2.5 Flash at 720P; storyboards, persistent character memory, and post-production are planned next.
+CineAgent AI provides two independent production paths:
+- **Cinematic Mode:** create a project and submit a short video generation job to Agnes AI.
+- **Digital Host Mode:** upload a portrait, enter a script, synthesize speech locally with Kokoro, animate the portrait with SadTalker, and retrieve an MP4 plus an SRT subtitle file.
 
 ## Requirements
 - Python 3.11+
-- Agnes AI API key with video access
-- Optional FFmpeg for future post-production
+- For Cinematic Mode: an Agnes AI API key with video access.
+- For Digital Host Mode: a machine with a supported PyTorch environment, Kokoro dependencies/model weights, SadTalker and its model weights. A CUDA-capable NVIDIA GPU is strongly recommended. CPU rendering may be very slow.
+- Disk space for local model weights and generated videos.
 
-## Run locally
+## Run the application
 ```bash
 python -m venv .venv
 # Windows: .venv\\Scripts\\activate
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Set AGNES_API_KEY in .env (never commit this file)
+# Set AGNES_API_KEY only if you plan to use Cinematic Mode.
 uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000` for the UI and `http://127.0.0.1:8000/docs` for API docs.
+Open `http://127.0.0.1:8000` for the workspace and `http://127.0.0.1:8000/docs` for API docs.
 
-## Video flow
+## Digital Host local setup
+1. Install and configure SadTalker using its official instructions: https://github.com/OpenTalker/SadTalker
+2. Set `SADTALKER_DIR` in `.env` to the folder containing SadTalker's `inference.py`.
+3. Install the optional Kokoro speech dependencies:
+   ```bash
+   pip install -r requirements-host.txt
+   ```
+4. Start the FastAPI app from the repository root. The first Kokoro run may download model weights and therefore requires internet access.
+5. Open Digital Host Mode, upload a front-facing portrait, enter a script, select Chinese or English, and start rendering.
+
+Default Kokoro voices:
+- Chinese: `zf_xiaobei` (language code `z`)
+- English: `af_heart` (language code `a`)
+
+The render worker creates:
+- `output/hosts/<job-id>/final.mp4`
+- `output/hosts/<job-id>/captions.srt`
+- `output/hosts/<job-id>/voice.wav`
+
+Job status is available from `GET /api/digital-host/jobs/{job_id}`. Files are served from `/outputs/...`.
+
+## Digital Host API
+- `POST /api/digital-host/portraits` — multipart image upload; returns a server-side portrait path.
+- `POST /api/digital-host/jobs` — JSON body with `title`, `script`, `portrait_path`, optional `language` (`zh` or `en`) and `voice`.
+- `GET /api/digital-host/jobs/{job_id}` — read job state and output URLs.
+
+The API queues the render in a FastAPI background task. For a public or multi-user deployment, replace this MVP background task with a durable queue and add authentication, authorization, quotas, file retention policies and object storage.
+
+## Cinematic video flow
 1. `POST /api/projects` — create a project.
-2. `POST /api/projects/{project_id}/generate` — submit to `POST https://apihub.agnes-ai.com/v1/videos`.
-3. `POST /api/projects/{project_id}/refresh` — poll `GET /agnesapi?video_id=...&model_name=...`.
-4. When Agnes returns `completed` and a video URL, the page displays a playable preview and an open/download link.
+2. `POST /api/projects/{project_id}/generate` — submit to Agnes.
+3. `POST /api/projects/{project_id}/refresh` — poll the provider task.
+4. When Agnes reports completion and returns a video URL, the UI displays a preview.
 
-The Agnes Video 2.5 request uses `model`, `prompt`, `mode=text`, `seconds` (4–12), `size=720P`, `aspect_ratio`, and `n=1`. Change `AGNES_VIDEO_MODEL` to `agnes-video-2.5` if that model is enabled for your account and you need its higher-resolution options.
-
-## API
-- `GET /api/health` — confirms the backend is reachable and whether an API key is configured (never returns the key).
-- `POST /api/projects`
-- `GET /api/projects/{project_id}`
-- `POST /api/projects/{project_id}/generate`
-- `POST /api/projects/{project_id}/refresh`
+The Agnes request uses `model`, `prompt`, `mode=text`, `seconds` (4–12), `size=720P`, `aspect_ratio` and `n=1`. Configure the model in `.env`.
 
 ## Tests
-Run `pytest -q`. Agnes integration tests use a mocked HTTP client, so they validate request/response wiring without spending quota or requiring a real API key. A real end-to-end video test still requires a valid Agnes key in the backend environment.
+Run `pytest -q`. The Agnes integration tests use a mocked HTTP client and do not consume API quota. A real Agnes end-to-end test requires a valid key. Digital Host rendering requires the local TTS and SadTalker models and is not part of the lightweight test suite.
 
-## Security and MVP limits
+## Security and cost notes
 - Never expose `AGNES_API_KEY` in browser code or commit `.env`.
-- Set the key as a secret/environment variable on the backend host.
-- Add authentication, rate limits, per-user quotas and persistent object storage before public launch.
-- SQLite stores project metadata only; this MVP does not copy generated videos into owned storage. The preview links to Agnes's returned URL.
+- Digital Host uses open-source software, but "open source" does not mean zero compute cost: model downloads, electricity, GPU time and storage still have costs.
+- Verify the licenses of code, model weights, voice assets and any portrait before commercial use.
+- The MVP stores uploads and outputs on local disk. Do not expose it publicly without authentication, rate limits, access controls and storage lifecycle management.
