@@ -130,7 +130,7 @@ async def upload_host_portrait(file: UploadFile = File(...)):
         raise HTTPException(413, "Portrait image must be 12 MB or smaller.")
     signatures = {b"\xff\xd8\xff": ".jpg", b"\x89PNG\r\n\x1a\n": ".png",
                   b"RIFF": ".webp"}
-    extension = next((ext for sig, ext in signatures.items() if content.startswith(sig)), None)
+    extension = next((ext for sig, ext in signatures.items() if content.startswith(sig) and (sig != b"RIFF" or content[8:12] == b"WEBP")), None)
     if not extension:
         raise HTTPException(415, "Upload a JPG, PNG, or WEBP portrait image.")
     portrait_id = str(uuid4())
@@ -193,7 +193,7 @@ async def get_digital_host_job(job_id: str):
         value = result.get(key)
         if value:
             try:
-                result[key.replace("_path", "_url")] = "/" + Path(value).resolve().relative_to(output_dir.resolve()).as_posix()
+                result[key.replace("_path", "_url")] = "/outputs/" + Path(value).resolve().relative_to(output_dir.resolve()).as_posix()
             except ValueError:
                 result[key.replace("_path", "_url")] = None
     return result
