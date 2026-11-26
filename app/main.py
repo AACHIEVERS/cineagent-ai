@@ -251,10 +251,17 @@ async def export_digital_host_video(job_id: str, aspect_ratio: str = "9:16"):
     width, height = (1080, 1920) if aspect_ratio == "9:16" else (1920, 1080)
     destination = source.parent / ("vertical_9x16.mp4" if aspect_ratio == "9:16" else "horizontal_16x9.mp4")
     if not destination.exists():
-        vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
+        filter_graph = (
+            f"[0:v]split=2[bg][fg];"
+            f"[bg]scale={width}:{height}:force_original_aspect_ratio=increase,"
+            f"crop={width}:{height},boxblur=24:12[background];"
+            f"[fg]scale={width}:{height}:force_original_aspect_ratio=decrease[foreground];"
+            "[background][foreground]overlay=(W-w)/2:(H-h)/2[v]"
+        )
         try:
             result = subprocess.run(
-                [ffmpeg, "-y", "-i", str(source), "-vf", vf, "-c:v", "libx264",
+                [ffmpeg, "-y", "-i", str(source), "-filter_complex", filter_graph,
+                 "-map", "[v]", "-map", "0:a?", "-c:v", "libx264",
                  "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-movflags",
                  "+faststart", str(destination)],
                 capture_output=True, text=True, timeout=600,
