@@ -6,7 +6,8 @@ from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles\nimport httpx
+from fastapi.staticfiles import StaticFiles
+import httpx
 
 from . import db
 from .agnes import AgnesError, create_video, get_video
@@ -21,7 +22,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="CineAgent AI", version="0.3.0", lifespan=lifespan)
+app = FastAPI(title="CineAgent AI", version="0.4.0", lifespan=lifespan)
 static_dir = Path(__file__).parent / "static"
 output_dir = Path(settings.output_dir)
 output_dir.mkdir(parents=True, exist_ok=True)
@@ -43,7 +44,7 @@ async def health():
         "video_model": settings.agnes_video_model,
         "digital_host_ready": Path(settings.sadtalker_dir, "inference.py").exists(),
         "kokoro_install_hint": "pip install -r requirements-host.txt",
-        "version": "0.3.0",
+        "version": "0.4.0",
     }
 
 
