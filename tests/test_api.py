@@ -1,15 +1,24 @@
 from fastapi.testclient import TestClient
 from app.main import app
 
+
 def test_health():
     with TestClient(app) as client:
         response = client.get("/api/health")
         assert response.status_code == 200
         assert response.json()["ok"] is True
+        assert response.json()["version"] == "0.4.0"
+
 
 def test_create_and_read_project():
     with TestClient(app) as client:
-        payload = {"title": "Mia Forest", "premise": "A woman finds a mysterious glowing object in a forest.", "style": "cinematic realism", "aspect_ratio": "16:9", "duration_seconds": 5}
+        payload = {
+            "title": "Mia Forest",
+            "premise": "A woman finds a mysterious glowing object in a forest.",
+            "style": "cinematic realism",
+            "aspect_ratio": "16:9",
+            "duration_seconds": 5,
+        }
         created = client.post("/api/projects", json=payload)
         assert created.status_code == 200
         project = created.json()
@@ -18,7 +27,38 @@ def test_create_and_read_project():
         assert fetched.status_code == 200
         assert fetched.json()["title"] == payload["title"]
 
+
 def test_project_validation():
     with TestClient(app) as client:
         response = client.post("/api/projects", json={"title": "", "premise": "short"})
         assert response.status_code == 422
+
+
+def test_digital_host_script_validation_without_ollama():
+    with TestClient(app) as client:
+        response = client.post("/api/digital-host/script", json={"topic": ""})
+        assert response.status_code == 422
+
+
+def test_digital_host_rejects_unsupported_language():
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/digital-host/script",
+            json={"topic": "AI in education", "language": "fr"},
+        )
+        assert response.status_code == 422
+
+
+def test_digital_host_portrait_rejects_non_image():
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/digital-host/portraits",
+            files={"file": ("not-image.txt", b"not an image", "text/plain")},
+        )
+        assert response.status_code == 415
+
+
+def test_digital_host_missing_job():
+    with TestClient(app) as client:
+        response = client.get("/api/digital-host/jobs/not-a-real-job")
+        assert response.status_code == 404
