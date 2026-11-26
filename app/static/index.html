@@ -27,7 +27,8 @@
 <p>上传一张正面、光线均匀的人像照片，输入主持稿，系统将先生成语音，再交给 SadTalker 制作口型同步视频。</p>
 <form id="hostForm">
 <label for="portrait">主播照片（JPG / PNG / WEBP，最大 12 MB）</label><input id="portrait" type="file" accept="image/jpeg,image/png,image/webp" required>
-<label for="hostTopic">节目主题（可用本地 Ollama 自动写稿）</label><div class="row"><input id="hostTopic" placeholder="例如：AI 如何改变学习方式"><button id="draftScript" type="button" class="secondary">AI 生成主持稿</button></div>\n<label for="hostTitle">视频标题</label><input id="hostTitle" maxlength="120" required value="Mia · 每日知识分享">
+<label for="hostTopic">节目主题（可用本地 Ollama 自动写稿）</label><div class="row"><input id="hostTopic" placeholder="例如：AI 如何改变学习方式"><button id="draftScript" type="button" class="secondary">AI 生成主持稿</button></div>
+<label for="hostTitle">视频标题</label><input id="hostTitle" maxlength="120" required value="Mia · 每日知识分享">
 <label for="hostScript">主持稿</label><textarea id="hostScript" maxlength="6000" required>大家好，欢迎来到今天的知识分享。今天我们想聊一个有趣的问题：人工智能如何改变我们的学习方式？真正重要的，不是让机器替我们思考，而是让工具帮助我们提出更好的问题。</textarea>
 <div class="row"><div><label for="hostLanguage">语言</label><select id="hostLanguage"><option value="zh">中文</option><option value="en">English</option></select></div><div><label for="hostVoice">Kokoro 声音 ID</label><input id="hostVoice" value="zf_xiaobei"></div></div>
 <button type="submit">生成数字主播视频</button></form>
