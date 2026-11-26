@@ -27,7 +27,7 @@
 <p>上传一张正面、光线均匀的人像照片，输入主持稿，系统将先生成语音，再交给 SadTalker 制作口型同步视频。</p>
 <form id="hostForm">
 <label for="portrait">主播照片（JPG / PNG / WEBP，最大 12 MB）</label><input id="portrait" type="file" accept="image/jpeg,image/png,image/webp" required>
-<label for="hostTitle">视频标题</label><input id="hostTitle" maxlength="120" required value="Mia · 每日知识分享">
+<label for="hostTopic">节目主题（可用本地 Ollama 自动写稿）</label><div class="row"><input id="hostTopic" placeholder="例如：AI 如何改变学习方式"><button id="draftScript" type="button" class="secondary">AI 生成主持稿</button></div>\n<label for="hostTitle">视频标题</label><input id="hostTitle" maxlength="120" required value="Mia · 每日知识分享">
 <label for="hostScript">主持稿</label><textarea id="hostScript" maxlength="6000" required>大家好，欢迎来到今天的知识分享。今天我们想聊一个有趣的问题：人工智能如何改变我们的学习方式？真正重要的，不是让机器替我们思考，而是让工具帮助我们提出更好的问题。</textarea>
 <div class="row"><div><label for="hostLanguage">语言</label><select id="hostLanguage"><option value="zh">中文</option><option value="en">English</option></select></div><div><label for="hostVoice">Kokoro 声音 ID</label><input id="hostVoice" value="zf_xiaobei"></div></div>
 <button type="submit">生成数字主播视频</button></form>
@@ -39,7 +39,7 @@ const $=id=>document.getElementById(id);
 let currentFilm=null,hostPoll=null;
 function status(el,value){el.textContent=typeof value==='string'?value:JSON.stringify(value,null,2)}
 async function api(path,opts={}){const r=await fetch(path,{...opts});const raw=await r.text();let d;try{d=raw?JSON.parse(raw):{}}catch{d={detail:raw}}if(!r.ok)throw Error(d.detail||JSON.stringify(d));return d}
-function showVideo(container,videoUrl,subtitleUrl){container.replaceChildren();if(!videoUrl)return;const v=document.createElement('video');v.controls=true;v.src=videoUrl;const links=document.createElement('p');const a=document.createElement('a');a.href=videoUrl;a.target='_blank';a.rel='noopener';a.textContent='打开/下载 MP4';links.append(a);if(subtitleUrl){const s=document.createElement('a');s.href=subtitleUrl;s.textContent='下载字幕 SRT';s.style.marginLeft='16px';s.download='captions.srt';links.append(s)}container.append(v,links)}
+function showVideo(container,videoUrl,subtitleUrl,jobId){container.replaceChildren();if(!videoUrl)return;const v=document.createElement('video');v.controls=true;v.src=videoUrl;const links=document.createElement('p');const a=document.createElement('a');a.href=videoUrl;a.target='_blank';a.rel='noopener';a.textContent='打开/下载原始 MP4';links.append(a);if(subtitleUrl){const s=document.createElement('a');s.href=subtitleUrl;s.textContent='下载字幕 SRT';s.style.marginLeft='16px';s.download='captions.srt';links.append(s)}container.append(v,links);if(jobId){for(const ratio of ['9:16','16:9']){const b=document.createElement('button');b.type='button';b.className='secondary';b.textContent='导出 '+ratio;b.onclick=async()=>{b.disabled=true;b.textContent='导出中…';try{const x=await api('/api/digital-host/jobs/'+jobId+'/export?aspect_ratio='+encodeURIComponent(ratio));const l=document.createElement('a');l.href=x.video_url;l.textContent='下载 '+ratio+' MP4';l.style.marginRight='14px';container.append(l);b.textContent='已导出 '+ratio}catch(e){b.disabled=false;b.textContent='重试 '+ratio;b.title=e.message}};container.append(b)}}}
 $('filmTab').onclick=()=>{$('filmPanel').hidden=false;$('hostPanel').hidden=true;$('filmTab').classList.add('active');$('hostTab').classList.remove('active')};
 $('hostTab').onclick=()=>{$('filmPanel').hidden=true;$('hostPanel').hidden=false;$('hostTab').classList.add('active');$('filmTab').classList.remove('active')};
 api('/api/health').then(d=>status($('filmStatus'),d)).catch(e=>status($('filmStatus'),'后端连接失败：'+e.message));
@@ -47,13 +47,14 @@ $('projectForm').onsubmit=async e=>{e.preventDefault();try{const p=await api('/a
 $('generate').onclick=async()=>{try{status($('filmStatus'),await api('/api/projects/'+currentFilm+'/generate',{method:'POST'}))}catch(e){status($('filmStatus'),'提交失败：'+e.message)}};
 $('refresh').onclick=async()=>{try{const p=await api('/api/projects/'+currentFilm+'/refresh',{method:'POST'});status($('filmStatus'),p);if(p.result_url)showVideo($('filmMedia'),p.result_url)}catch(e){status($('filmStatus'),'查询失败：'+e.message)}};
 $('hostLanguage').onchange=()=>{$('hostVoice').value=$('hostLanguage').value==='zh'?'zf_xiaobei':'af_heart'};
+$('draftScript').onclick=async()=>{try{const topic=$('hostTopic').value.trim();if(!topic)throw Error('请先输入节目主题。');$('draftScript').disabled=true;$('draftScript').textContent='AI 写稿中…';const result=await api('/api/digital-host/script',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,language:$('hostLanguage').value})});$('hostScript').value=result.script;$('draftScript').textContent='重新生成';}catch(e){alert('AI 写稿失败：'+e.message);$('draftScript').textContent='重试生成'}finally{$('draftScript').disabled=false}};
 $('hostForm').onsubmit=async e=>{e.preventDefault();clearInterval(hostPoll);$('hostMedia').replaceChildren();try{
  const file=$('portrait').files[0];if(!file)throw Error('请先选择主播照片。');
  const form=new FormData();form.append('file',file);status($('hostStatus'),'正在上传主播照片……');
  const portrait=await api('/api/digital-host/portraits',{method:'POST',body:form});
  const job=await api('/api/digital-host/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('hostTitle').value,script:$('hostScript').value,language:$('hostLanguage').value,voice:$('hostVoice').value,portrait_path:portrait.portrait_path})});
  status($('hostStatus'),job);
- const poll=async()=>{try{const j=await api('/api/digital-host/jobs/'+job.id);status($('hostStatus'),j);if(j.status==='completed'){clearInterval(hostPoll);showVideo($('hostMedia'),j.video_url,j.subtitle_url)}else if(j.status==='failed'){clearInterval(hostPoll)}}catch(err){clearInterval(hostPoll);status($('hostStatus'),'查询任务失败：'+err.message)}};
+ const poll=async()=>{try{const j=await api('/api/digital-host/jobs/'+job.id);status($('hostStatus'),j);if(j.status==='completed'){clearInterval(hostPoll);showVideo($('hostMedia'),j.video_url,j.subtitle_url,job.id)}else if(j.status==='failed'){clearInterval(hostPoll)}}catch(err){clearInterval(hostPoll);status($('hostStatus'),'查询任务失败：'+err.message)}};
  hostPoll=setInterval(poll,4000);await poll();
  }catch(err){status($('hostStatus'),'生成失败：'+err.message)}};
 </script>
