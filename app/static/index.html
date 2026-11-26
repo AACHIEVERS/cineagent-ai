@@ -2,69 +2,59 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CineAgent AI · 视频实验室</title>
+<title>CineAgent AI · Video Studio</title>
 <style>
-:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#edf2f7;background:#0b1020}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0%,#1c2b49 0,transparent 36%),#0b1020}main{max-width:900px;margin:0 auto;padding:36px 20px 70px}.eyebrow{color:#9db7e7;letter-spacing:.14em;font-size:12px}h1{font-size:clamp(32px,6vw,54px);line-height:1.05;margin:12px 0}p{color:#b8c4d8;line-height:1.6}.panel{background:#121a2b;border:1px solid #293650;border-radius:18px;padding:22px;margin-top:22px}label{display:block;margin:14px 0 7px;color:#dbe5f5;font-size:14px}input,textarea,select{width:100%;padding:12px 13px;border-radius:10px;border:1px solid #34445f;background:#0b1221;color:#f5f7fb;font:inherit}textarea{min-height:110px;resize:vertical}button{margin-top:18px;border:0;border-radius:10px;padding:12px 16px;background:#dce8ff;color:#10203a;font-weight:700;cursor:pointer}button.secondary{background:#293850;color:#f5f7fb;margin-left:8px}.status{white-space:pre-wrap;overflow-wrap:anywhere;background:#0a101d;padding:14px;border-radius:10px;color:#cfe0ff;font-size:13px;margin-top:14px}a{color:#a9c9ff}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.media{margin-top:14px}.media video{width:100%;max-height:520px;border-radius:12px;background:#05070c}@media(max-width:600px){.row{grid-template-columns:1fr}}
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#edf2f7;background:#0b1020}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0%,#1c2b49 0,transparent 36%),#0b1020}main{max-width:940px;margin:0 auto;padding:36px 20px 70px}.eyebrow{color:#9db7e7;letter-spacing:.14em;font-size:12px}h1{font-size:clamp(32px,6vw,54px);line-height:1.05;margin:12px 0}p{color:#b8c4d8;line-height:1.6}.panel{background:#121a2b;border:1px solid #293650;border-radius:18px;padding:22px;margin-top:22px}label{display:block;margin:14px 0 7px;color:#dbe5f5;font-size:14px}input,textarea,select{width:100%;padding:12px 13px;border-radius:10px;border:1px solid #34445f;background:#0b1221;color:#f5f7fb;font:inherit}textarea{min-height:110px;resize:vertical}button{margin-top:18px;border:0;border-radius:10px;padding:12px 16px;background:#dce8ff;color:#10203a;font-weight:700;cursor:pointer}button.secondary{background:#293850;color:#f5f7fb;margin-left:8px}.status{white-space:pre-wrap;overflow-wrap:anywhere;background:#0a101d;padding:14px;border-radius:10px;color:#cfe0ff;font-size:13px;margin-top:14px}a{color:#a9c9ff}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}.media{margin-top:14px}.media video{width:100%;max-height:520px;border-radius:12px;background:#05070c}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}.tabs button{margin:0;background:#293850;color:#e9f0fc}.tabs button.active{background:#dce8ff;color:#10203a}.hint{font-size:12px;color:#8fa2bf}@media(max-width:600px){.row{grid-template-columns:1fr}}
 </style>
 </head>
 <body><main>
-<div class="eyebrow">AI FILMMAKING WORKSPACE · MVP 0.2</div>
-<h1>让故事变成<br>电影镜头。</h1>
-<p>创建短片项目，提交给 Agnes AI 生成第一段视频，并轮询任务状态直到完成。当前版本是最小验证链路，尚未包含完整的多镜头编排与长期角色记忆。</p>
-<section class="panel">
+<div class="eyebrow">CINEAGENT AI · CREATOR WORKSPACE 0.3</div>
+<h1>从创意到影像，<br>一站式完成。</h1>
+<p>电影短片与真人写实数字主播采用独立生产流程。数字主播当前使用本地 Kokoro TTS + SadTalker；需要本机安装模型与运行环境。</p>
+<div class="tabs"><button id="filmTab" class="active" type="button">Cinematic Mode</button><button id="hostTab" type="button">Digital Host Mode</button></div>
+<section id="filmPanel" class="panel">
+<h2>电影短片生成</h2>
 <form id="projectForm">
 <label for="title">项目名称</label><input id="title" required maxlength="120" value="Mia · 森林的秘密">
 <label for="premise">故事梗概</label><textarea id="premise" required minlength="10">一位年轻女性独自走进被晨雾笼罩的森林，在古老树根旁发现一枚散发微光的神秘物品。她小心拾起它，森林中的光线随之改变。</textarea>
-<label for="style">视觉风格</label><input id="style" value="cinematic realism, soft morning mist, natural skin texture, slow dolly-in, subtle film grain">
-<div class="row"><div><label for="ratio">画幅</label><select id="ratio"><option>16:9</option><option>9:16</option><option>1:1</option></select></div>
-<div><label for="duration">单镜头时长（秒）</label><select id="duration"><option value="5">5 秒（推荐测试）</option><option value="8">8 秒</option><option value="10">10 秒</option><option value="12">12 秒</option></select></div></div>
-<button type="submit">创建项目</button>
-</form>
-<div id="actions" hidden><button id="generate">提交视频生成</button><button class="secondary" id="refresh">刷新任务状态</button></div>
-<div id="status" class="status">正在检查后端……</div><div id="media" class="media"></div>
+<label for="style">视觉风格</label><input id="style" value="cinematic realism, soft morning mist, natural skin texture, slow dolly-in">
+<div class="row"><div><label for="ratio">画幅</label><select id="ratio"><option>16:9</option><option>9:16</option><option>1:1</option></select></div><div><label for="duration">单镜头时长（秒）</label><select id="duration"><option value="5">5 秒</option><option value="8">8 秒</option><option value="10">10 秒</option><option value="12">12 秒</option></select></div></div>
+<button type="submit">创建电影项目</button></form>
+<div id="filmActions" hidden><button id="generate">提交视频生成</button><button class="secondary" id="refresh">刷新状态</button></div><div id="filmStatus" class="status">正在检查后端……</div><div id="filmMedia" class="media"></div>
 </section>
-<p>安全提示：API 密钥仅保存在后端环境变量中。不要把真实密钥写入网页或提交到 GitHub。</p>
+<section id="hostPanel" class="panel" hidden>
+<h2>真人写实数字主播</h2>
+<p>上传一张正面、光线均匀的人像照片，输入主持稿，系统将先生成语音，再交给 SadTalker 制作口型同步视频。</p>
+<form id="hostForm">
+<label for="portrait">主播照片（JPG / PNG / WEBP，最大 12 MB）</label><input id="portrait" type="file" accept="image/jpeg,image/png,image/webp" required>
+<label for="hostTitle">视频标题</label><input id="hostTitle" maxlength="120" required value="Mia · 每日知识分享">
+<label for="hostScript">主持稿</label><textarea id="hostScript" maxlength="6000" required>大家好，欢迎来到今天的知识分享。今天我们想聊一个有趣的问题：人工智能如何改变我们的学习方式？真正重要的，不是让机器替我们思考，而是让工具帮助我们提出更好的问题。</textarea>
+<div class="row"><div><label for="hostLanguage">语言</label><select id="hostLanguage"><option value="zh">中文</option><option value="en">English</option></select></div><div><label for="hostVoice">Kokoro 声音 ID</label><input id="hostVoice" value="zf_xiaobei"></div></div>
+<button type="submit">生成数字主播视频</button></form>
+<div id="hostStatus" class="status">等待创建数字主播任务。</div><div id="hostMedia" class="media"></div>
+<p class="hint">中文默认声音 zf_xiaobei；英文可使用 af_heart。生成字幕文件（SRT）与视频文件分别提供。渲染需要本地 SadTalker 环境及其模型权重。</p>
+</section>
 <script>
-let currentId=null;
-const statusEl=document.getElementById('status');
-const mediaEl=document.getElementById('media');
-function show(v){
-  statusEl.textContent=typeof v==='string'?v:JSON.stringify(v,null,2);
-  mediaEl.replaceChildren();
-  if(v && typeof v==='object' && v.result_url){
-    const video=document.createElement('video');video.controls=true;video.preload='metadata';video.src=v.result_url;
-    const link=document.createElement('p');const a=document.createElement('a');a.href=v.result_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent='在新窗口打开/下载视频';link.appendChild(a);
-    mediaEl.append(video,link);
-  }
-}
-async function api(path,opts={}){
-  const r=await fetch(path,{headers:{'Content-Type':'application/json'},...opts});
-  const raw=await r.text();let d;
-  try{d=raw?JSON.parse(raw):{}}catch{d={detail:raw||'Empty response'}}
-  if(!r.ok)throw new Error(d.detail||JSON.stringify(d));
-  return d;
-}
-api('/api/health').then(d=>show(d.provider_configured?d:{...d,note:'请在后端配置 AGNES_API_KEY 后提交真实视频任务。'})).catch(e=>show('后端连接失败：'+e.message));
-document.getElementById('projectForm').addEventListener('submit',async e=>{
-  e.preventDefault();
-  try{
-    const p=await api('/api/projects',{method:'POST',body:JSON.stringify({
-      title:document.getElementById('title').value,premise:document.getElementById('premise').value,
-      style:document.getElementById('style').value,aspect_ratio:document.getElementById('ratio').value,
-      duration_seconds:Number(document.getElementById('duration').value)
-    })});
-    currentId=p.id;document.getElementById('actions').hidden=false;show(p);
-  }catch(err){show('创建失败：'+err.message)}
-});
-document.getElementById('generate').addEventListener('click',async()=>{
-  if(!currentId)return;
-  try{show(await api(`/api/projects/${currentId}/generate`,{method:'POST'}))}
-  catch(e){show('提交失败：'+e.message)}
-});
-document.getElementById('refresh').addEventListener('click',async()=>{
-  if(!currentId)return;
-  try{show(await api(`/api/projects/${currentId}/refresh`,{method:'POST'}))}
-  catch(e){show('查询失败：'+e.message)}
-});
+const $=id=>document.getElementById(id);
+let currentFilm=null,hostPoll=null;
+function status(el,value){el.textContent=typeof value==='string'?value:JSON.stringify(value,null,2)}
+async function api(path,opts={}){const r=await fetch(path,{...opts});const raw=await r.text();let d;try{d=raw?JSON.parse(raw):{}}catch{d={detail:raw}}if(!r.ok)throw Error(d.detail||JSON.stringify(d));return d}
+function showVideo(container,videoUrl,subtitleUrl){container.replaceChildren();if(!videoUrl)return;const v=document.createElement('video');v.controls=true;v.src=videoUrl;const links=document.createElement('p');const a=document.createElement('a');a.href=videoUrl;a.target='_blank';a.rel='noopener';a.textContent='打开/下载 MP4';links.append(a);if(subtitleUrl){const s=document.createElement('a');s.href=subtitleUrl;s.textContent='下载字幕 SRT';s.style.marginLeft='16px';s.download='captions.srt';links.append(s)}container.append(v,links)}
+$('filmTab').onclick=()=>{$('filmPanel').hidden=false;$('hostPanel').hidden=true;$('filmTab').classList.add('active');$('hostTab').classList.remove('active')};
+$('hostTab').onclick=()=>{$('filmPanel').hidden=true;$('hostPanel').hidden=false;$('hostTab').classList.add('active');$('filmTab').classList.remove('active')};
+api('/api/health').then(d=>status($('filmStatus'),d)).catch(e=>status($('filmStatus'),'后端连接失败：'+e.message));
+$('projectForm').onsubmit=async e=>{e.preventDefault();try{const p=await api('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('title').value,premise:$('premise').value,style:$('style').value,aspect_ratio:$('ratio').value,duration_seconds:Number($('duration').value)})});currentFilm=p.id;$('filmActions').hidden=false;status($('filmStatus'),p)}catch(err){status($('filmStatus'),'创建失败：'+err.message)}};
+$('generate').onclick=async()=>{try{status($('filmStatus'),await api('/api/projects/'+currentFilm+'/generate',{method:'POST'}))}catch(e){status($('filmStatus'),'提交失败：'+e.message)}};
+$('refresh').onclick=async()=>{try{const p=await api('/api/projects/'+currentFilm+'/refresh',{method:'POST'});status($('filmStatus'),p);if(p.result_url)showVideo($('filmMedia'),p.result_url)}catch(e){status($('filmStatus'),'查询失败：'+e.message)}};
+$('hostLanguage').onchange=()=>{$('hostVoice').value=$('hostLanguage').value==='zh'?'zf_xiaobei':'af_heart'};
+$('hostForm').onsubmit=async e=>{e.preventDefault();clearInterval(hostPoll);$('hostMedia').replaceChildren();try{
+ const file=$('portrait').files[0];if(!file)throw Error('请先选择主播照片。');
+ const form=new FormData();form.append('file',file);status($('hostStatus'),'正在上传主播照片……');
+ const portrait=await api('/api/digital-host/portraits',{method:'POST',body:form});
+ const job=await api('/api/digital-host/jobs',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('hostTitle').value,script:$('hostScript').value,language:$('hostLanguage').value,voice:$('hostVoice').value,portrait_path:portrait.portrait_path})});
+ status($('hostStatus'),job);
+ const poll=async()=>{try{const j=await api('/api/digital-host/jobs/'+job.id);status($('hostStatus'),j);if(j.status==='completed'){clearInterval(hostPoll);showVideo($('hostMedia'),j.video_url,j.subtitle_url)}else if(j.status==='failed'){clearInterval(hostPoll)}}catch(err){clearInterval(hostPoll);status($('hostStatus'),'查询任务失败：'+err.message)}};
+ hostPoll=setInterval(poll,4000);await poll();
+ }catch(err){status($('hostStatus'),'生成失败：'+err.message)}};
 </script>
 </main></body></html>
