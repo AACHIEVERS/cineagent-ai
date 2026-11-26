@@ -1,14 +1,16 @@
 # CineAgent AI — Video Production MVP
 
-CineAgent AI provides two independent production paths:
-- **Cinematic Mode:** create a project and submit a short video generation job to Agnes AI.
-- **Digital Host Mode:** upload a portrait, enter a script, synthesize speech locally with Kokoro, animate the portrait with SadTalker, and retrieve an MP4 plus an SRT subtitle file.
+CineAgent AI contains two separate video workflows:
+- **Cinematic Mode:** create short-film projects and submit video jobs to Agnes AI.
+- **Digital Host Mode:** generate a presenter script with local Ollama, synthesize speech with Kokoro, animate a portrait with SadTalker, create subtitles, and export platform-specific video formats with FFmpeg.
 
 ## Requirements
 - Python 3.11+
-- For Cinematic Mode: an Agnes AI API key with video access.
-- For Digital Host Mode: a machine with a supported PyTorch environment, Kokoro dependencies/model weights, SadTalker and its model weights. A CUDA-capable NVIDIA GPU is strongly recommended. CPU rendering may be very slow.
-- Disk space for local model weights and generated videos.
+- Cinematic Mode: Agnes AI API key with video access.
+- Digital Host Mode: Kokoro, SadTalker and their model weights; a CUDA-capable NVIDIA GPU is strongly recommended. CPU rendering may be very slow.
+- Local Ollama for AI script drafting.
+- FFmpeg for 9:16 and 16:9 exports.
+- Disk space for model weights and generated videos.
 
 ## Run the application
 ```bash
@@ -17,39 +19,43 @@ python -m venv .venv
 # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-# Set AGNES_API_KEY only if you plan to use Cinematic Mode.
 uvicorn app.main:app --reload
 ```
 
 Open `http://127.0.0.1:8000` for the workspace and `http://127.0.0.1:8000/docs` for API docs.
 
-## Digital Host local setup
-1. Install and configure SadTalker using its official instructions: https://github.com/OpenTalker/SadTalker
-2. Set `SADTALKER_DIR` in `.env` to the folder containing SadTalker's `inference.py`.
-3. Install the optional Kokoro speech dependencies:
-   ```bash
-   pip install -r requirements-host.txt
-   ```
-4. Start the FastAPI app from the repository root. The first Kokoro run may download model weights and therefore requires internet access.
-5. Open Digital Host Mode, upload a front-facing portrait, enter a script, select Chinese or English, and start rendering.
+## Digital Host setup
+1. Install SadTalker and its model weights: https://github.com/OpenTalker/SadTalker
+2. Set `SADTALKER_DIR` in `.env` to the directory containing `inference.py`.
+3. Install Kokoro dependencies: `pip install -r requirements-host.txt`. The first run may download model weights.
+4. Install Ollama: https://ollama.com/ and pull a local model, for example `ollama pull qwen2.5:3b`.
+5. Install FFmpeg and ensure its executable is on PATH.
+6. Set `OLLAMA_API_ROOT`, `OLLAMA_MODEL`, and `SADTALKER_DIR` in `.env`.
+7. Start the FastAPI app from the repository root.
 
-Default Kokoro voices:
-- Chinese: `zf_xiaobei` (language code `z`)
-- English: `af_heart` (language code `a`)
+Default local settings:
+- Ollama model: `qwen2.5:3b`
+- Chinese Kokoro voice: `zf_xiaobei` (language code `z`)
+- English Kokoro voice: `af_heart` (language code `a`)
 
-The render worker creates:
-- `output/hosts/<job-id>/final.mp4`
-- `output/hosts/<job-id>/captions.srt`
-- `output/hosts/<job-id>/voice.wav`
+## Digital Host production flow
+1. Enter a topic and use **AI Generate Script**. The app calls the local Ollama server; no paid text-generation API is used.
+2. Upload a front-facing portrait (JPG, PNG or WEBP; maximum 12 MB).
+3. Select Chinese or English and choose a Kokoro voice.
+4. Submit the render. The local worker generates a WAV voice track, an SRT subtitle file and a SadTalker talking-head MP4.
+5. Preview the master MP4 and download its subtitle file.
+6. Export 9:16 vertical video for TikTok/Shorts and 16:9 horizontal video for YouTube using local FFmpeg.
 
-Job status is available from `GET /api/digital-host/jobs/{job_id}`. Files are served from `/outputs/...`.
+Generated files are stored under `output/hosts/<job-id>/` and served through `/outputs/...`.
 
 ## Digital Host API
+- `POST /api/digital-host/script` — JSON: `topic`, optional `language` (`zh` or `en`); drafts a script with local Ollama.
 - `POST /api/digital-host/portraits` — multipart image upload; returns a server-side portrait path.
-- `POST /api/digital-host/jobs` — JSON body with `title`, `script`, `portrait_path`, optional `language` (`zh` or `en`) and `voice`.
-- `GET /api/digital-host/jobs/{job_id}` — read job state and output URLs.
+- `POST /api/digital-host/jobs` — JSON: `title`, `script`, `portrait_path`, optional `language` and `voice`.
+- `GET /api/digital-host/jobs/{job_id}` — read job status and output URLs.
+- `GET /api/digital-host/jobs/{job_id}/export?aspect_ratio=9:16` — export a vertical MP4; use `16:9` for horizontal.
 
-The API queues the render in a FastAPI background task. For a public or multi-user deployment, replace this MVP background task with a durable queue and add authentication, authorization, quotas, file retention policies and object storage.
+The MVP uses FastAPI background tasks and local disk. Before public or multi-user deployment, add authentication, authorization, durable job queues, quotas, file retention policies and object storage.
 
 ## Cinematic video flow
 1. `POST /api/projects` — create a project.
@@ -60,10 +66,10 @@ The API queues the render in a FastAPI background task. For a public or multi-us
 The Agnes request uses `model`, `prompt`, `mode=text`, `seconds` (4–12), `size=720P`, `aspect_ratio` and `n=1`. Configure the model in `.env`.
 
 ## Tests
-Run `pytest -q`. The Agnes integration tests use a mocked HTTP client and do not consume API quota. A real Agnes end-to-end test requires a valid key. Digital Host rendering requires the local TTS and SadTalker models and is not part of the lightweight test suite.
+Run `pytest -q`. Agnes integration tests use a mocked HTTP client and do not consume API quota. A real Agnes end-to-end test requires a valid API key. Digital Host rendering requires the local Kokoro and SadTalker models and is not part of the lightweight test suite.
 
-## Security and cost notes
+## Security, licensing and cost
 - Never expose `AGNES_API_KEY` in browser code or commit `.env`.
-- Digital Host uses open-source software, but "open source" does not mean zero compute cost: model downloads, electricity, GPU time and storage still have costs.
-- Verify the licenses of code, model weights, voice assets and any portrait before commercial use.
-- The MVP stores uploads and outputs on local disk. Do not expose it publicly without authentication, rate limits, access controls and storage lifecycle management.
+- Open-source software can avoid per-generation API charges, but model downloads, electricity, GPU time and storage are not literally cost-free.
+- Verify licenses for source code, model weights, voices and portraits before commercial use.
+- The MVP has no user authentication. Do not expose it publicly without access controls, rate limits, upload limits and storage lifecycle management.
