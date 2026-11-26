@@ -1,0 +1,4 @@
+# Optional local digital-host dependencies. Install after the base requirements.
+kokoro>=0.9.4
+soundfile>=0.12.1
+numpy>=1.26
