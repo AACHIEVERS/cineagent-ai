@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from fastapi import BackgroundTasks, FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.staticfiles import StaticFiles\nimport httpx
 
 from . import db
 from .agnes import AgnesError, create_video, get_video
@@ -123,6 +123,39 @@ async def refresh_project(project_id: str):
     return db.get_project(project_id)
 
 
+@app.post("/api/digital-host/script")
+async def generate_host_script(payload: dict):
+    topic = str(payload.get("topic", "")).strip()
+    language = str(payload.get("language", "zh"))
+    if not topic or len(topic) > 500:
+        raise HTTPException(422, "topic is required and must be 500 characters or fewer.")
+    if language not in {"zh", "en"}:
+        raise HTTPException(422, "language must be zh or en.")
+    language_name = "Simplified Chinese" if language == "zh" else "English"
+    prompt = (
+        f"Write a natural 45-60 second digital-host script in {language_name}. "
+        f"Topic: {topic}. Start with a concise hook, explain 2-3 useful points, "
+        "and finish with one memorable takeaway. Write only the spoken script, "
+        "without stage directions, markdown, headings or fabricated statistics."
+    )
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                f"{settings.ollama_api_root.rstrip('/')}/api/generate",
+                json={"model": settings.ollama_model, "prompt": prompt, "stream": False},
+            )
+        response.raise_for_status()
+        data = response.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(
+            503, f"Local Ollama is unavailable. Start Ollama and pull {settings.ollama_model}."
+        ) from exc
+    script = str(data.get("response", "")).strip()
+    if not script:
+        raise HTTPException(502, "Ollama returned an empty script.")
+    return {"script": script, "model": settings.ollama_model}
+
+
 @app.post("/api/digital-host/portraits")
 async def upload_host_portrait(file: UploadFile = File(...)):
     content = await file.read()
@@ -197,3 +230,37 @@ async def get_digital_host_job(job_id: str):
             except ValueError:
                 result[key.replace("_path", "_url")] = None
     return result
+
+
+@app.get("/api/digital-host/jobs/{job_id}/export")
+async def export_digital_host_video(job_id: str, aspect_ratio: str = "9:16"):
+    if aspect_ratio not in {"9:16", "16:9"}:
+        raise HTTPException(422, "aspect_ratio must be 9:16 or 16:9.")
+    job = db.get_host_job(job_id)
+    if not job:
+        raise HTTPException(404, "Digital host job not found.")
+    if job.get("status") != "completed" or not job.get("video_path"):
+        raise HTTPException(409, "The master video is not ready yet.")
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise HTTPException(503, "FFmpeg is required for platform exports. Install FFmpeg and retry.")
+    source = Path(job["video_path"]).resolve()
+    if not source.is_file():
+        raise HTTPException(404, "Master video file is missing.")
+    width, height = (1080, 1920) if aspect_ratio == "9:16" else (1920, 1080)
+    destination = source.parent / ("vertical_9x16.mp4" if aspect_ratio == "9:16" else "horizontal_16x9.mp4")
+    if not destination.exists():
+        vf = f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}"
+        try:
+            result = subprocess.run(
+                [ffmpeg, "-y", "-i", str(source), "-vf", vf, "-c:v", "libx264",
+                 "-preset", "veryfast", "-crf", "23", "-c:a", "aac", "-movflags",
+                 "+faststart", str(destination)],
+                capture_output=True, text=True, timeout=600,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise HTTPException(504, "Video export timed out.") from exc
+        if result.returncode != 0 or not destination.is_file():
+            raise HTTPException(500, "FFmpeg export failed: " + (result.stderr or "")[-1000:])
+    relative = destination.relative_to(output_dir.resolve()).as_posix()
+    return {"aspect_ratio": aspect_ratio, "video_url": "/outputs/" + relative}
